@@ -2,20 +2,8 @@
 import lejos.nxt.*;
 
 /**
- * Demonstration of the Behavior subsumption classes.
- * 
- * Requires a wheeled vehicle with two independently controlled
- * motors connected to motor ports A and C, and 
- * a touch sensor connected to sensor  port 1 and
- * an ultrasonic sensor connected to port 3;
- * 
- * @author Brian Bagnall and Lawrie Griffiths, modified by Roger Glassey
- *
- * Uses a new version of the Behavior interface and Arbitrator with
- * integer priorities returned by takeCaontrol instead of booleans.
- * 
- * Exit behavior inserted, local distance sampling thread and
- * backward drive added in DetectWall by Ole Caprani, 23-4-2012
+ *Totally unique and not at all inspired by bumperCar implementation of a sumo robot
+ * @author Troels and Kasper and Frederik
  */
 public class SumoBot
 {
@@ -50,7 +38,7 @@ public class SumoBot
   }
 }
 
-
+//behavior for scouting out other robots
 class LookAround implements Behavior
 {
 
@@ -69,10 +57,9 @@ class LookAround implements Behavior
   public void action()
   {
     _suppressed = false;
+    //turn around, the detectEnemy behavior runs a sensor that will detect anything in front
     Motor.A.forward();
     Motor.C.backward();
-    
-    Motor.B.forward();
     LCD.clear();
     LCD.drawString("WHO HIDES",0,1);
     LCD.drawString("FROM KHORNE?!",0,2);
@@ -87,7 +74,7 @@ class LookAround implements Behavior
   }
 }
 
-
+//behavior to detect enemies and drive towards them
 class DetectEnemy extends Thread implements Behavior
 {
   private boolean _suppressed = false;
@@ -101,11 +88,15 @@ class DetectEnemy extends Thread implements Behavior
     this.start();
   }
   
+  //the ultrasonic sensor is run in a thread so no method needs to wait for it to get a response
   public void run()
   {
     while ( true ) distance = sonar.getDistance();
   }
 
+  //high priority when there is an enemy in front, lower when it is driving. This was a mistake
+  //since the robot would keep driving until reaching the end instead of reorienting itself towards
+  //the direction of the enemy.
   public int takeControl()
   {
     if (distance < 40)
@@ -124,9 +115,8 @@ class DetectEnemy extends Thread implements Behavior
   {
     _suppressed = false;
     active = true;
-   // Sound.beepSequenceUp();
 	
-    // CHARGE
+    // CHARGE the enemy with a suitable warcry
     LCD.clear();
     LCD.drawString("BLOOD FOR THE",0,1);
     LCD.drawString("BLOOD GOD!",0,2);
@@ -134,6 +124,7 @@ class DetectEnemy extends Thread implements Behavior
     LCD.drawString("SKULL THRONE!",0,5);
     Motor.A.forward();
     Motor.C.forward();
+    //we were going to put sawblades on motor b, but these didn't make it into the final build
     Motor.B.forward();
     while (!_suppressed )
     {
@@ -144,13 +135,13 @@ class DetectEnemy extends Thread implements Behavior
     Motor.A.stop(); 
     Motor.C.stop();
     LCD.drawString("Stopped       ",0,3);
-   // Sound.beepSequence();
     active = false;
     
   }
   private UltrasonicSensor sonar;
 }
 
+//behavior for backing up if front lightsensor detects the white sensor
 class AvoidEdgeFront implements Behavior
 {
 	private boolean active = false;
@@ -160,6 +151,7 @@ class AvoidEdgeFront implements Behavior
 	 {
 	 front = new LightSensor(SensorPort.S1);
 	 }
+	 //will get highest priority while on the edge, may be interupted by detectEnemy while driving away from the edge
 	  public int takeControl()
 	  {
 	    if (front.getLightValue() > 50)
@@ -178,7 +170,6 @@ class AvoidEdgeFront implements Behavior
 	  {
 	    _suppressed = false;
 	    active = true;
-	    //Sound.beepSequenceUp();
 		
 	 // Backward for 1000 msec
 	    LCD.clear();
@@ -187,19 +178,16 @@ class AvoidEdgeFront implements Behavior
 	    Motor.A.backward();
 	    Motor.C.backward();
 	    
-	    Motor.B.forward();
 	    int now = (int)System.currentTimeMillis();
 	    while (!_suppressed && ((int)System.currentTimeMillis()< now + 1000) )
 	    {
 	       Thread.yield(); //don't exit till suppressed
 	    }
-	   
-	    
 	    // Turn
 	    LCD.clear();
 	    LCD.drawString("REEEEEEEEEE",0,3);
-	    Motor.A.rotate(180, true);// start Motor.A rotating backward
-	    Motor.C.rotate(-180, true);  // rotate C farther to make the turn
+	    Motor.A.rotate(180, true);// start Motor.A rotating forward
+	    Motor.C.rotate(-180, true);  // rotate C opposite to make the turn
 	    while (!_suppressed && Motor.C.isMoving())
 	    {
 	      Thread.yield(); //don't exit till suppressed
@@ -208,15 +196,12 @@ class AvoidEdgeFront implements Behavior
 	    Motor.A.stop(); 
 	    Motor.C.stop();
 	    LCD.drawString("STOP FOR NOTHING",0,3);
-	  //  Sound.beepSequence();
 	    active = false;
-	    
 	  }
 	  private LightSensor front;
-
 	}
 	
-
+//do the same for the back sensor
 class AvoidEdgeBack implements Behavior
 {
 	  private boolean _suppressed = false;
@@ -243,34 +228,25 @@ class AvoidEdgeBack implements Behavior
 	  {
 	    _suppressed = false;
 	    active = true;
-	//    Sound.beepSequenceUp();
-		
-	    // Backward for 1000 msec
+	    // forward for 1000 msec
 	    LCD.clear();
 	    LCD.drawString("CHAAAARGE!",0,3);
 	    LCD.drawInt(back.getLightValue(),0,5);
 
 	    Motor.A.forward();
 	    Motor.C.forward();
-	    
-	    Motor.B.forward();
 	    int now = (int)System.currentTimeMillis();
 	    while (!_suppressed && ((int)System.currentTimeMillis()< now + 1000) )
-	  
 	    {
 	       Thread.yield(); //don't exit till suppressed
 	    }
 	   
-	    
 	    Motor.A.stop(); 
 	    Motor.C.stop();
 	    LCD.drawString("Stopped       ",0,3);
-	   // Sound.beepSequence();
 	    active = false;
-	    
 	  }
 	  private LightSensor back;
-
 	}
 	
 
